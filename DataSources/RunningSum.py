@@ -1,0 +1,41 @@
+from itertools import count
+
+from pyspark.sql import SparkSession
+from pyspark.streaming import StreamingContext
+from pyspark import SparkContext
+from pyspark.streaming import *
+from pyspark import SparkConf
+from pyspark.sql.functions import *
+
+## Here im calculating running sum of the completed orders.
+if __name__ == "__main__":
+    spark = SparkSession.builder \
+        .master("local[4]") \
+        .appName("mywordc count prohram") \
+        .config("spark.sql.shuffle.partitions", 3) \
+        .config("spark.streaming.stopGracefullyOnShutdown", "true") \
+        .config("spark.ui.port", 4545) \
+        .config("spark.sql.streaming.schemaInference", "true") \
+        .getOrCreate()
+
+    ## Read from socket
+    inputDf = spark.readStream \
+        .format("json") \
+        .option("path", "C:/Users/gotur/PycharmProjects/SparkStreaming2/inputfiles") \
+        .load()
+
+    ## Processing
+
+    filteredDf = inputDf.filter(col("order_status") == "COMPLETE").agg(count("order_status"))
+
+    # .withColumn("occrence", lit("1"))
+
+    ## Time interval trigger
+    writedf = filteredDf.writeStream \
+        .format("console") \
+        .outputMode("complete") \
+        .option("checkpointLocation", "mycheckpoint13") \
+        .trigger(processingTime='5 seconds') \
+        .start()
+
+    writedf.awaitTermination()
